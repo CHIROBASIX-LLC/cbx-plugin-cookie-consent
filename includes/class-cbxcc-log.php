@@ -6,22 +6,41 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Consent log: a record of every Accept / Decline, kept in the site's own database.
  *
- * Nothing in US law requires this for a marketing website. It exists so the site owner can
- * answer "prove this visitor agreed" if a funder, an insurer or a regulator ever asks.
+ * WHAT THE LAW ACTUALLY ASKS FOR
+ * No US law requires cookie-consent logging at all. GDPR Article 7(1) requires a controller to
+ * be ABLE TO DEMONSTRATE consent, but every regulator that has spelled out what that means
+ * describes system-level evidence, not per-visitor personal data:
+ *   - EDPB Guidelines 05/2020 para 106: the duty to demonstrate consent "should not in itself
+ *     lead to excessive amounts of additional data processing".
+ *   - The German DSK guidance para 84: proving consent requires no long-lived unique-ID cookies,
+ *     and the result should be stored "without a UID or other excessive information".
+ *   - CNIL's four recommended proof methods are all system-level: a published hash of the
+ *     consent code, timestamped screenshots per banner version, third-party audits, and
+ *     timestamped retention of the banner's successive configurations.
+ *   - The ICO's own bad example of a consent record is one keyed to an IP address; its good
+ *     example uses an ID plus a timestamp plus the version of the form in use at the time.
+ * So the useful record is the BANNER VERSION HISTORY, which this class also keeps, and a
+ * minimal per-decision row.
  *
- * By design the default records NO IP address. An IP is itself personal data, so storing one to
- * prove that somebody declined tracking works against the point. The record is a random consent
- * ID, a timestamp, the choices made, the policy version and the page. That is the pattern the
- * mainstream consent tools follow, and it is enough to evidence a decision without creating a
- * new pile of personal data. IP capture can be switched on (full or anonymised) for a site that
- * genuinely needs it.
+ * WHAT IS DELIBERATELY NOT STORED
+ * No IP address by default. No user agent, which is a high-entropy fingerprinting vector that
+ * adds nothing to proof of consent. No page URL by default: on a healthcare site, pairing a
+ * visitor identifier with a timestamped visit to a specific condition page is the exact artifact
+ * the 2022-2024 tracking-technology dispute was about, and building it in would manufacture
+ * evidence for a claim a client would otherwise not face.
+ *
+ * The row is therefore a random consent ID, a timestamp, the choices made, how they were made,
+ * and the policy version. That matches ISO/IEC TS 27560:2023, which has no IP field either.
  */
 class CBXCC_Log {
 
-	const TABLE  = 'cbxcc_consent_log';
-	const CRON   = 'cbxcc_prune_log';
+	const TABLE     = 'cbxcc_consent_log';
+	const CRON      = 'cbxcc_prune_log';
+	const DB_OPTION = 'cbxcc_db_version';
+	const DB_VERSION = 2;
 
 	public function __construct() {
+		add_action( 'admin_init', array( $this, 'maybe_upgrade' ) );
 		add_action( 'rest_api_init', array( $this, 'register_route' ) );
 		add_action( self::CRON, array( $this, 'prune' ) );
 		add_action( 'init', array( $this, 'maybe_schedule' ) );
@@ -49,15 +68,38 @@ class CBXCC_Log {
 			marketing tinyint(1) NOT NULL DEFAULT 0,
 			policy_version varchar(16) NOT NULL DEFAULT '',
 			region varchar(8) NOT NULL DEFAULT '',
+			method varchar(16) NOT NULL DEFAULT '',
 			page varchar(255) NOT NULL DEFAULT '',
 			ip varchar(64) NOT NULL DEFAULT '',
-			user_agent varchar(255) NOT NULL DEFAULT '',
 			PRIMARY KEY  (id),
 			UNIQUE KEY consent_id (consent_id),
 			KEY created_at (created_at)
 		) {$collate};";
 
 		dbDelta( $sql );
+		update_option( self::DB_OPTION, self::DB_VERSION, false );
+	}
+
+	/**
+	 * Bring an existing table up to the current shape. dbDelta adds new columns but never drops
+	 * old ones, so the user_agent column retired in 1.2.0 is dropped explicitly along with the
+	 * data in it.
+	 */
+	public function maybe_upgrade() {
+		if ( (int) get_option( self::DB_OPTION, 0 ) >= self::DB_VERSION ) {
+			return;
+		}
+
+		self::create_table();
+
+		global $wpdb;
+		$table = self::table();
+		$cols  = $wpdb->get_col( "DESC {$table}", 0 ); // phpcs:ignore
+		if ( is_array( $cols ) && in_array( 'user_agent', $cols, true ) ) {
+			$wpdb->query( "ALTER TABLE {$table} DROP COLUMN user_agent" ); // phpcs:ignore
+		}
+
+		update_option( self::DB_OPTION, self::DB_VERSION, false );
 	}
 
 	public function maybe_schedule() {
@@ -111,9 +153,11 @@ class CBXCC_Log {
 				'marketing'      => $req->get_param( 'marketing' ) ? 1 : 0,
 				'policy_version' => substr( sanitize_text_field( (string) $req->get_param( 'version' ) ), 0, 16 ),
 				'region'         => substr( sanitize_text_field( (string) $req->get_param( 'region' ) ), 0, 8 ),
-				'page'           => substr( esc_url_raw( (string) $req->get_param( 'url' ) ), 0, 255 ),
+				'method'         => in_array( $req->get_param( 'method' ), array( 'accept_all', 'reject_all', 'custom' ), true )
+					? $req->get_param( 'method' ) : '',
+				'page'           => cbxcc_get( 'log_page' )
+					? substr( esc_url_raw( (string) $req->get_param( 'url' ) ), 0, 255 ) : '',
 				'ip'             => $this->ip_to_store(),
-				'user_agent'     => substr( sanitize_text_field( (string) $req->get_header( 'user_agent' ) ), 0, 255 ),
 			),
 			array( '%s', '%s', '%d', '%d', '%s', '%s', '%s', '%s', '%s' )
 		);
@@ -203,12 +247,63 @@ class CBXCC_Log {
 		header( 'Content-Disposition: attachment; filename=consent-log-' . gmdate( 'Y-m-d' ) . '.csv' );
 
 		$out = fopen( 'php://output', 'w' );
-		fputcsv( $out, array( 'id', 'consent_id', 'created_at_utc', 'analytics', 'marketing', 'policy_version', 'region', 'page', 'ip', 'user_agent' ) );
+		fputcsv( $out, array( 'id', 'consent_id', 'created_at_utc', 'analytics', 'marketing', 'policy_version', 'region', 'method', 'page', 'ip' ) );
 		foreach ( $rows as $r ) {
 			fputcsv( $out, $r );
 		}
 		fclose( $out );
 		exit;
+	}
+
+	/**
+	 * Banner version history. CNIL and the German DSK both name "the banner's successive
+	 * configurations, retained with a timestamp" as proof of consent. This snapshots the wording
+	 * and design every time they change, which is the evidence that actually matters and costs
+	 * no visitor privacy at all.
+	 */
+	const SNAPSHOTS = 'cbxcc_banner_versions';
+
+	public static function snapshot_if_changed( $settings ) {
+		$watch = array(
+			'title', 'body', 'accept_label', 'reject_label', 'prefs_label', 'save_label',
+			'policy_url', 'policy_label', 'cat_necessary', 'cat_necessary_desc',
+			'cat_analytics', 'cat_analytics_desc', 'cat_marketing', 'cat_marketing_desc',
+			'position', 'bg', 'fg', 'muted', 'border', 'accept_bg', 'accept_fg',
+			'reject_bg', 'reject_fg', 'default_outside_eu', 'policy_version',
+		);
+
+		$now = array();
+		foreach ( $watch as $k ) {
+			$now[ $k ] = isset( $settings[ $k ] ) ? $settings[ $k ] : '';
+		}
+
+		$history = get_option( self::SNAPSHOTS, array() );
+		if ( ! is_array( $history ) ) {
+			$history = array();
+		}
+
+		$last = end( $history );
+		if ( $last && isset( $last['config'] ) && $last['config'] === $now ) {
+			return; // Nothing meaningful changed.
+		}
+
+		$history[] = array(
+			'saved_at' => current_time( 'mysql', true ),
+			'by'       => wp_get_current_user() ? wp_get_current_user()->user_login : '',
+			'config'   => $now,
+		);
+
+		// Keep the last 50 versions; older ones are rarely useful and the option should stay small.
+		if ( count( $history ) > 50 ) {
+			$history = array_slice( $history, -50 );
+		}
+
+		update_option( self::SNAPSHOTS, $history, false );
+	}
+
+	public static function snapshots() {
+		$h = get_option( self::SNAPSHOTS, array() );
+		return is_array( $h ) ? array_reverse( $h ) : array();
 	}
 
 	public function maybe_clear_log() {

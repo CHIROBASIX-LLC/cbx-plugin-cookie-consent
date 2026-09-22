@@ -123,9 +123,14 @@ class CBXCC_Settings {
 
 		// Checkboxes: only trust the hidden marker that says this tab was the one submitted.
 		if ( isset( $input['_tab'] ) && 'behaviour' === $input['_tab'] ) {
-			$out['enabled'] = empty( $input['enabled'] ) ? 0 : 1;
-			$out['logging'] = empty( $input['logging'] ) ? 0 : 1;
+			$out['enabled']  = empty( $input['enabled'] ) ? 0 : 1;
+			$out['logging']  = empty( $input['logging'] ) ? 0 : 1;
+			$out['log_page'] = empty( $input['log_page'] ) ? 0 : 1;
 		}
+
+		// Keep a timestamped copy of the banner as it now reads. This, rather than a pile of
+		// visitor records, is what regulators actually name as proof of consent.
+		CBXCC_Log::snapshot_if_changed( $out );
 
 		return $out;
 	}
@@ -395,12 +400,25 @@ class CBXCC_Settings {
 					}
 					?>
 					<p class="description" style="max-width:60em">
-						An IP address is itself personal information, so storing one to prove that somebody
-						declined tracking works against the point. The record already has a unique reference,
-						a timestamp, the choice made and the page it was made on, which is what the
-						mainstream cookie tools keep.
+						<strong>No law requires this.</strong> No US law requires cookie consent to be logged
+						at all, and European regulators say the opposite of "record the IP": the duty to prove
+						consent must not itself create extra personal data. The record already carries a unique
+						reference, a timestamp, the choice made and how it was made, which is what the
+						mainstream cookie tools keep and what the international standard for consent records
+						describes. Leave this on the first option unless somebody has specifically asked for
+						more.
 					</p>
 				</td>
+			</tr>
+			<tr>
+				<th scope="row">Page address</th>
+				<td><label><input type="checkbox" name="<?php echo esc_attr( $this->name( 'log_page' ) ); ?>" value="1"
+					<?php checked( $s['log_page'], 1 ); ?>> Also record which page the visitor was on</label>
+					<p class="description" style="max-width:60em">
+						Off by default. On a health or medical site, storing which page somebody was reading
+						next to a timestamp is the exact kind of record that has caused trouble elsewhere.
+						It adds nothing to proving that they made a choice.
+					</p></td>
 			</tr>
 			<tr>
 				<th scope="row"><label for="cbxcc-log_retention_days">Delete records after</label></th>
@@ -440,24 +458,62 @@ class CBXCC_Settings {
 
 		<table class="wp-list-table widefat striped">
 			<thead><tr>
-				<th>When (UTC)</th><th>Analytics</th><th>Advertising</th><th>Page</th>
+				<th>When (UTC)</th><th>Analytics</th><th>Advertising</th><th>How</th>
+				<?php if ( $s['log_page'] ) : ?><th>Page</th><?php endif; ?>
 				<th>Policy</th><th>Region</th><th>Reference</th>
 				<?php if ( 'none' !== $s['log_ip'] ) : ?><th>IP</th><?php endif; ?>
 			</tr></thead>
 			<tbody>
 			<?php if ( ! $rows ) : ?>
-				<tr><td colspan="8">Nothing recorded yet. Visit the site in a private window and click a button on the banner.</td></tr>
+				<tr><td colspan="9">Nothing recorded yet. Visit the site in a private window and click a button on the banner.</td></tr>
 			<?php else : ?>
 				<?php foreach ( $rows as $r ) : ?>
 					<tr>
 						<td><?php echo esc_html( $r->created_at ); ?></td>
 						<td><?php echo $r->analytics ? '<span style="color:#1f6f43">Allowed</span>' : '<span style="color:#b32d2e">Declined</span>'; ?></td>
 						<td><?php echo $r->marketing ? '<span style="color:#1f6f43">Allowed</span>' : '<span style="color:#b32d2e">Declined</span>'; ?></td>
-						<td><?php echo esc_html( $r->page ); ?></td>
+						<td><?php
+							$how = array( 'accept_all' => 'Accepted all', 'reject_all' => 'Declined all', 'custom' => 'Chose' );
+							echo esc_html( isset( $how[ $r->method ] ) ? $how[ $r->method ] : '' );
+						?></td>
+						<?php if ( $s['log_page'] ) : ?><td><?php echo esc_html( $r->page ); ?></td><?php endif; ?>
 						<td><?php echo esc_html( $r->policy_version ); ?></td>
 						<td><?php echo esc_html( $r->region ); ?></td>
 						<td><code style="font-size:11px"><?php echo esc_html( substr( $r->consent_id, 0, 13 ) ); ?></code></td>
 						<?php if ( 'none' !== $s['log_ip'] ) : ?><td><?php echo esc_html( $r->ip ); ?></td><?php endif; ?>
+					</tr>
+				<?php endforeach; ?>
+			<?php endif; ?>
+			</tbody>
+		</table>
+
+		<h2 style="margin-top:34px">Banner version history</h2>
+		<p style="max-width:70em">
+			Every time the wording or design changes, a timestamped copy is kept here. If anyone ever
+			asks you to show what a visitor actually agreed to on a given date, <strong>this</strong> is
+			the evidence regulators name, far more than a list of visitors. It costs no visitor privacy.
+		</p>
+		<?php $snaps = CBXCC_Log::snapshots(); ?>
+		<table class="wp-list-table widefat striped">
+			<thead><tr><th style="width:170px">Saved (UTC)</th><th style="width:140px">By</th><th>Heading and message at that time</th></tr></thead>
+			<tbody>
+			<?php if ( ! $snaps ) : ?>
+				<tr><td colspan="3">Nothing yet. A version is stored the first time the settings are saved.</td></tr>
+			<?php else : ?>
+				<?php foreach ( array_slice( $snaps, 0, 20 ) as $snap ) : ?>
+					<tr>
+						<td><?php echo esc_html( $snap['saved_at'] ); ?></td>
+						<td><?php echo esc_html( $snap['by'] ); ?></td>
+						<td>
+							<strong><?php echo esc_html( $snap['config']['title'] ); ?></strong><br>
+							<span style="color:#555"><?php echo esc_html( $snap['config']['body'] ); ?></span><br>
+							<small style="color:#777">
+								Buttons: <?php echo esc_html( $snap['config']['accept_label'] ); ?> /
+								<?php echo esc_html( $snap['config']['reject_label'] ); ?>
+								&nbsp;&middot;&nbsp; Policy version <?php echo esc_html( $snap['config']['policy_version'] ); ?>
+								&nbsp;&middot;&nbsp; Outside Europe: <?php echo 'granted' === $snap['config']['default_outside_eu'] ? 'track until declined' : 'wait for accept'; ?>
+							</small>
+						</td>
 					</tr>
 				<?php endforeach; ?>
 			<?php endif; ?>

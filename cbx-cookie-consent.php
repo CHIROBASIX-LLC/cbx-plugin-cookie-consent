@@ -4,7 +4,7 @@
  * Plugin URI:  https://github.com/CHIROBASIX-LLC/cbx-plugin-cookie-consent
  * GitHub Repo: CHIROBASIX-LLC/cbx-plugin-cookie-consent
  * Description: Cookie consent banner with Google Consent Mode v2. Holds Google tags until the visitor chooses, and exposes dataLayer events so Google Tag Manager can gate non-Google tags such as the Meta Pixel. Design and wording are editable under Settings, Cookie Consent. No third-party service, no subscription, no external requests.
- * Version:     1.1.0
+ * Version:     1.2.0
  * Author:      CHIROBASIX
  * Author URI:  https://chirobasix.com
  * License:     GPL-2.0+
@@ -30,7 +30,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'CBXCC_VERSION', '1.1.0' );
+define( 'CBXCC_VERSION', '1.2.0' );
 define( 'CBXCC_FILE', __FILE__ );
 define( 'CBXCC_DIR', plugin_dir_path( __FILE__ ) );
 define( 'CBXCC_OPTION', 'cbxcc_settings' );
@@ -88,13 +88,14 @@ function cbxcc_defaults() {
 
 		// Behaviour.
 		'default_outside_eu'  => 'granted',
-		'remember_days'       => 180,
+		'remember_days'       => 180,   // 6 months: what CNIL and the ICO both recommend.
 		'policy_version'      => 1,
 
 		// Consent log.
 		'logging'             => 1,
 		'log_ip'              => 'none',
-		'log_retention_days'  => 365,
+		'log_page'            => 0,
+		'log_retention_days'  => 365,   // 12 months; the choice itself is re-asked at remember_days.
 	);
 }
 
@@ -362,10 +363,10 @@ function syncWpConsentApi(a,m){
 
 /* Record the choice for the site owner's audit trail. Fire and forget: a failed log must never
    affect what the visitor sees or whether their choice is honoured. */
-function logChoice(a,m,id){
+function logChoice(a,m,id,how){
   if(!API._log){return;}
   try{
-    var body=JSON.stringify({id:id,analytics:a?1:0,marketing:m?1:0,
+    var body=JSON.stringify({id:id,analytics:a?1:0,marketing:m?1:0,method:how,
       version:API.version,region:API.region,url:location.pathname});
     if(w.navigator&&navigator.sendBeacon){
       navigator.sendBeacon(API._log,new Blob([body],{type:'application/json'}));
@@ -375,7 +376,7 @@ function logChoice(a,m,id){
   }catch(e){}
 }
 
-function apply(a,m){
+function apply(a,m,how){
   var wasA=API.analytics,wasM=API.marketing,id=uuid();
   API.analytics=a; API.marketing=m; API.decided=true;
   store(a,m,id);
@@ -385,7 +386,7 @@ function apply(a,m){
   if(m&&!wasM){w.dataLayer.push({event:'cbx_consent_marketing_granted'});}
   if((wasA&&!a)||(wasM&&!m)){clearTracking();}
   syncWpConsentApi(a,m);
-  logChoice(a,m,id);
+  logChoice(a,m,id,how||'custom');
   hide();
 }
 
@@ -399,9 +400,9 @@ function hide(){
   yes.hidden=false; no.hidden=false; more.hidden=false;
 }
 
-yes.addEventListener('click',function(){apply(true,true);});
-no.addEventListener('click',function(){apply(false,false);});
-save.addEventListener('click',function(){apply(ana.checked,mkt.checked);});
+yes.addEventListener('click',function(){apply(true,true,'accept_all');});
+no.addEventListener('click',function(){apply(false,false,'reject_all');});
+save.addEventListener('click',function(){apply(ana.checked,mkt.checked,'custom');});
 more.addEventListener('click',function(){
   prefs.hidden=false; save.hidden=false;
   yes.hidden=true; no.hidden=true; more.hidden=true;

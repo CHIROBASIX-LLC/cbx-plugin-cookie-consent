@@ -3,7 +3,7 @@ Contributors: chirobasix
 Requires at least: 5.6
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.1.0
+Stable tag: 1.2.0
 License: GPL-2.0+
 
 Cookie consent banner with Google Consent Mode v2. Design and wording are editable in WP Admin.
@@ -28,12 +28,25 @@ Setup).
 
 == Consent log ==
 
-Every Accept and Decline is recorded in the site's own database: a unique reference, a timestamp,
-the choices made, the policy version and the page. Exportable as CSV.
+Two records, because they answer different questions.
 
-By default NO IP address is recorded. An IP is itself personal data, so storing one to prove that
-someone declined tracking works against the point. Full or anonymised IP capture can be switched
-on under Behaviour for a site that needs it.
+**Banner version history.** Every time the wording or design changes, a timestamped copy is kept.
+This is the evidence regulators actually name (CNIL's recommended proof methods and the German
+DSK guidance are both about retaining the banner's successive configurations), and it costs no
+visitor privacy at all.
+
+**Per-decision rows.** A unique reference, a timestamp, the choices made, how they were made and
+the policy version. Exportable as CSV. This matches ISO/IEC TS 27560:2023, the standard for
+consent records, which has no IP field.
+
+No law requires any of this. No US law requires cookie-consent logging at all, and GDPR Art. 7(1)
+requires only that you be ABLE TO DEMONSTRATE consent, which EDPB Guidelines 05/2020 para 106 says
+"should not in itself lead to excessive amounts of additional data processing".
+
+Deliberately NOT stored: IP address (off by default; can be switched to anonymised or full),
+user agent (a fingerprinting vector that adds nothing to proof of consent), and the page address
+(off by default: on a health site, pairing a visitor with a timestamped page view is the exact
+record that has caused trouble elsewhere).
 
 == Notes for developers ==
 
@@ -49,6 +62,12 @@ on under Behaviour for a site that needs it.
 - JS API: `window.cbxConsent.state()`, `window.cbxConsent.open()`.
 
 == Changelog ==
+
+= 1.2.0 =
+Consent log reworked to match what regulators actually ask for. Added a banner version history,
+which is the evidence CNIL and the German DSK name. Each row now records HOW the choice was made
+(accepted all, declined all, or chose). Removed user-agent capture entirely. The page address is
+now off by default. Existing tables are migrated automatically.
 
 = 1.1.0 =
 Banner styling is now hardened against theme CSS. Elementor kits style every button globally
