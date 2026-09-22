@@ -4,7 +4,7 @@
  * Plugin URI:  https://github.com/CHIROBASIX-LLC/cbx-plugin-cookie-consent
  * GitHub Repo: CHIROBASIX-LLC/cbx-plugin-cookie-consent
  * Description: Cookie consent banner with Google Consent Mode v2. Holds Google tags until the visitor chooses, and exposes dataLayer events so Google Tag Manager can gate non-Google tags such as the Meta Pixel. Design and wording are editable under Settings, Cookie Consent. No third-party service, no subscription, no external requests.
- * Version:     1.0.0
+ * Version:     1.0.1
  * Author:      CHIROBASIX
  * Author URI:  https://chirobasix.com
  * License:     GPL-2.0+
@@ -30,7 +30,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'CBXCC_VERSION', '1.0.0' );
+define( 'CBXCC_VERSION', '1.0.1' );
 define( 'CBXCC_FILE', __FILE__ );
 define( 'CBXCC_DIR', plugin_dir_path( __FILE__ ) );
 define( 'CBXCC_OPTION', 'cbxcc_settings' );
@@ -59,6 +59,7 @@ function cbxcc_defaults() {
 		'position'            => 'bottom-left',
 		'offset'              => 16,
 		'radius'              => 6,
+		'button_radius'       => 4,
 		'max_width'           => 430,
 		'bg'                  => '#ffffff',
 		'fg'                  => '#1a1a1a',
@@ -238,7 +239,7 @@ function cbxcc_print_footer() {
 .cbxcc a{color:inherit;text-decoration:underline}
 .cbxcc-row{display:flex;flex-wrap:wrap;gap:8px}
 .cbxcc-btn{font:inherit;font-size:14px;font-weight:600;padding:10px 18px;
-  border-radius:<?php echo esc_attr( max( 0, (int) $s['radius'] - 2 ) ); ?>px;
+  border-radius:<?php echo esc_attr( (int) $s['button_radius'] ); ?>px;
   border:1px solid transparent;cursor:pointer;flex:1 1 0;min-width:120px;text-align:center}
 .cbxcc-accept{background:<?php echo esc_attr( $s['accept_bg'] ); ?>;color:<?php echo esc_attr( $s['accept_fg'] ); ?>}
 .cbxcc-reject{background:<?php echo esc_attr( $s['reject_bg'] ); ?>;color:<?php echo esc_attr( $s['reject_fg'] ); ?>;

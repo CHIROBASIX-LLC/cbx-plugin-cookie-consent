@@ -75,6 +75,7 @@ class CBXCC_Settings {
 		$ints     = array(
 			'offset'             => array( 0, 80 ),
 			'radius'             => array( 0, 40 ),
+			'button_radius'      => array( 0, 200 ),
 			'max_width'          => array( 280, 900 ),
 			'remember_days'      => array( 1, 730 ),
 			'policy_version'     => array( 1, 9999 ),
@@ -265,9 +266,15 @@ class CBXCC_Settings {
 				           value="<?php echo esc_attr( (int) $s['offset'] ); ?>" min="0" max="80" class="small-text"> pixels</td>
 			</tr>
 			<tr>
-				<th scope="row"><label for="cbxcc-radius">Corner rounding</label></th>
+				<th scope="row"><label for="cbxcc-radius">Corner rounding, box</label></th>
 				<td><input type="number" id="cbxcc-radius" name="<?php echo esc_attr( $this->name( 'radius' ) ); ?>"
 				           value="<?php echo esc_attr( (int) $s['radius'] ); ?>" min="0" max="40" class="small-text"> pixels</td>
+			</tr>
+			<tr>
+				<th scope="row"><label for="cbxcc-button_radius">Corner rounding, buttons</label></th>
+				<td><input type="number" id="cbxcc-button_radius" name="<?php echo esc_attr( $this->name( 'button_radius' ) ); ?>"
+				           value="<?php echo esc_attr( (int) $s['button_radius'] ); ?>" min="0" max="200" class="small-text"> pixels
+				    <p class="description">Use a large number such as 200 for fully rounded pill buttons, to match a site whose buttons are pills.</p></td>
 			</tr>
 		</table>
 

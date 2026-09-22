@@ -3,7 +3,7 @@ Contributors: chirobasix
 Requires at least: 5.6
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.0.1
 License: GPL-2.0+
 
 Cookie consent banner with Google Consent Mode v2. Design and wording are editable in WP Admin.
@@ -49,6 +49,9 @@ on under Behaviour for a site that needs it.
 - JS API: `window.cbxConsent.state()`, `window.cbxConsent.open()`.
 
 == Changelog ==
+
+= 1.0.1 =
+Button corner rounding is now its own setting, so pill buttons can match a site whose buttons are pills.
 
 = 1.0.0 =
 First release.
