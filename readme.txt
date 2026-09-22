@@ -3,7 +3,7 @@ Contributors: chirobasix
 Requires at least: 5.6
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.0.1
+Stable tag: 1.1.0
 License: GPL-2.0+
 
 Cookie consent banner with Google Consent Mode v2. Design and wording are editable in WP Admin.
@@ -49,6 +49,12 @@ on under Behaviour for a site that needs it.
 - JS API: `window.cbxConsent.state()`, `window.cbxConsent.open()`.
 
 == Changelog ==
+
+= 1.1.0 =
+Banner styling is now hardened against theme CSS. Elementor kits style every button globally
+(display, font size, uppercase, letter spacing), which broke the button layout and, because the
+theme sets `display`, even defeated the `hidden` attribute so the Save button showed when it
+should not have. All banner rules are now double-class specificity with explicit resets.
 
 = 1.0.1 =
 Button corner rounding is now its own setting, so pill buttons can match a site whose buttons are pills.

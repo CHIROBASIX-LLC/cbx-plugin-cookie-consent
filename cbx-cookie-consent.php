@@ -4,7 +4,7 @@
  * Plugin URI:  https://github.com/CHIROBASIX-LLC/cbx-plugin-cookie-consent
  * GitHub Repo: CHIROBASIX-LLC/cbx-plugin-cookie-consent
  * Description: Cookie consent banner with Google Consent Mode v2. Holds Google tags until the visitor chooses, and exposes dataLayer events so Google Tag Manager can gate non-Google tags such as the Meta Pixel. Design and wording are editable under Settings, Cookie Consent. No third-party service, no subscription, no external requests.
- * Version:     1.0.1
+ * Version:     1.1.0
  * Author:      CHIROBASIX
  * Author URI:  https://chirobasix.com
  * License:     GPL-2.0+
@@ -30,7 +30,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'CBXCC_VERSION', '1.0.1' );
+define( 'CBXCC_VERSION', '1.1.0' );
 define( 'CBXCC_FILE', __FILE__ );
 define( 'CBXCC_DIR', plugin_dir_path( __FILE__ ) );
 define( 'CBXCC_OPTION', 'cbxcc_settings' );
@@ -228,41 +228,60 @@ function cbxcc_print_footer() {
 	?>
 <!-- CHIROBASIX Cookie Consent: banner -->
 <style id="cbxcc-css">
-.cbxcc{position:fixed;bottom:<?php echo esc_attr( $off ); ?>px;<?php echo esc_attr( $pos ); ?>
+/* Themes routinely style every <button> globally. Elementor kits in particular set display,
+   font-size, text-transform and letter-spacing on `.elementor-kit-N button`, which outranks a
+   single class and, because it sets `display`, even defeats the `hidden` attribute. So every
+   rule below is double-class specificity and resets the properties a theme is likely to set. */
+.cbxcc [hidden]{display:none!important}
+.cbxcc.cbxcc{position:fixed;bottom:<?php echo esc_attr( $off ); ?>px;<?php echo esc_attr( $pos ); ?>
   z-index:2147483000;background:<?php echo esc_attr( $s['bg'] ); ?>;color:<?php echo esc_attr( $s['fg'] ); ?>;
   border:1px solid <?php echo esc_attr( $s['border'] ); ?>;border-radius:<?php echo esc_attr( (int) $s['radius'] ); ?>px;
-  box-shadow:0 6px 28px rgba(0,0,0,.16);padding:18px 20px;
-  font:400 15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;}
-.cbxcc[hidden]{display:none!important}
-.cbxcc h2{margin:0 0 6px;font-size:16px;font-weight:600;line-height:1.3;color:inherit}
-.cbxcc p{margin:0 0 14px;color:<?php echo esc_attr( $s['muted'] ); ?>;font-size:14px}
-.cbxcc a{color:inherit;text-decoration:underline}
-.cbxcc-row{display:flex;flex-wrap:wrap;gap:8px}
-.cbxcc-btn{font:inherit;font-size:14px;font-weight:600;padding:10px 18px;
+  box-shadow:0 6px 28px rgba(0,0,0,.16);padding:18px 20px;margin:0;
+  font:400 15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;
+  letter-spacing:normal;text-transform:none;text-align:left}
+.cbxcc.cbxcc[hidden]{display:none!important}
+.cbxcc .cbxcc-h{margin:0 0 6px;padding:0;font-family:inherit;font-size:16px;font-weight:600;
+  line-height:1.3;letter-spacing:normal;text-transform:none;color:<?php echo esc_attr( $s['fg'] ); ?>}
+.cbxcc .cbxcc-p{margin:0 0 14px;padding:0;font-family:inherit;color:<?php echo esc_attr( $s['muted'] ); ?>;
+  font-size:14px;line-height:1.5;letter-spacing:normal;text-transform:none}
+.cbxcc .cbxcc-p a{color:inherit;text-decoration:underline;font-size:inherit;letter-spacing:inherit}
+.cbxcc .cbxcc-row{display:flex;flex-wrap:wrap;gap:8px;margin:0;padding:0}
+.cbxcc .cbxcc-btn{display:inline-block;box-sizing:border-box;
+  font-family:inherit;font-size:14px;font-weight:600;line-height:1.3;
+  letter-spacing:normal;text-transform:none;text-decoration:none;text-align:center;
+  white-space:normal;padding:11px 16px;margin:0;width:auto;height:auto;min-height:0;
   border-radius:<?php echo esc_attr( (int) $s['button_radius'] ); ?>px;
-  border:1px solid transparent;cursor:pointer;flex:1 1 0;min-width:120px;text-align:center}
-.cbxcc-accept{background:<?php echo esc_attr( $s['accept_bg'] ); ?>;color:<?php echo esc_attr( $s['accept_fg'] ); ?>}
-.cbxcc-reject{background:<?php echo esc_attr( $s['reject_bg'] ); ?>;color:<?php echo esc_attr( $s['reject_fg'] ); ?>;
+  border:1px solid transparent;cursor:pointer;box-shadow:none;
+  flex:1 1 0;min-width:110px}
+.cbxcc .cbxcc-accept{background:<?php echo esc_attr( $s['accept_bg'] ); ?>;color:<?php echo esc_attr( $s['accept_fg'] ); ?>}
+.cbxcc .cbxcc-reject{background:<?php echo esc_attr( $s['reject_bg'] ); ?>;color:<?php echo esc_attr( $s['reject_fg'] ); ?>;
   border-color:<?php echo esc_attr( $s['border'] ); ?>}
-.cbxcc-link{background:none;border:0;padding:6px 0 0;font:inherit;font-size:13px;
-  color:<?php echo esc_attr( $s['muted'] ); ?>;text-decoration:underline;cursor:pointer;flex:0 0 100%;text-align:left}
-.cbxcc-btn:focus-visible,.cbxcc-link:focus-visible,.cbxcc input:focus-visible{outline:2px solid <?php echo esc_attr( $s['accept_bg'] ); ?>;outline-offset:2px}
-.cbxcc-prefs{margin:0 0 14px;padding:12px 0 2px;border-top:1px solid <?php echo esc_attr( $s['border'] ); ?>}
-.cbxcc-prefs[hidden]{display:none!important}
-.cbxcc-opt{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin-bottom:12px}
-.cbxcc-opt input{margin:3px 0 0;width:16px;height:16px;accent-color:<?php echo esc_attr( $s['accept_bg'] ); ?>}
-.cbxcc-opt label{font-size:14px;font-weight:600;cursor:pointer}
-.cbxcc-opt span{grid-column:2;font-size:13px;color:<?php echo esc_attr( $s['muted'] ); ?>;line-height:1.45}
-.cbxcc-opt input:disabled+label{cursor:default;opacity:.75}
+.cbxcc .cbxcc-link{display:inline-block;box-sizing:border-box;background:none;border:0;box-shadow:none;
+  padding:8px 0 0;margin:0;width:auto;height:auto;min-height:0;
+  font-family:inherit;font-size:13px;font-weight:400;line-height:1.4;
+  letter-spacing:normal;text-transform:none;text-align:left;white-space:normal;
+  color:<?php echo esc_attr( $s['muted'] ); ?>;text-decoration:underline;cursor:pointer;flex:0 0 100%}
+.cbxcc .cbxcc-btn:focus-visible,.cbxcc .cbxcc-link:focus-visible,.cbxcc input:focus-visible{
+  outline:2px solid <?php echo esc_attr( $s['accept_bg'] ); ?>;outline-offset:2px}
+.cbxcc .cbxcc-prefs{margin:0 0 14px;padding:12px 0 2px;border-top:1px solid <?php echo esc_attr( $s['border'] ); ?>}
+.cbxcc .cbxcc-opt{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:0 0 12px;padding:0}
+.cbxcc .cbxcc-opt input{margin:3px 0 0;padding:0;width:16px;height:16px;min-height:0;float:none;
+  accent-color:<?php echo esc_attr( $s['accept_bg'] ); ?>}
+.cbxcc .cbxcc-opt label{display:inline;margin:0;padding:0;font-family:inherit;font-size:14px;font-weight:600;
+  line-height:1.4;letter-spacing:normal;text-transform:none;cursor:pointer;
+  color:<?php echo esc_attr( $s['fg'] ); ?>}
+.cbxcc .cbxcc-opt span{grid-column:2;font-size:13px;color:<?php echo esc_attr( $s['muted'] ); ?>;
+  line-height:1.45;letter-spacing:normal;text-transform:none}
+.cbxcc .cbxcc-opt input:disabled+label{cursor:default;opacity:.75}
 @media (prefers-reduced-motion: no-preference){
-  .cbxcc{animation:cbxcc-in .28s ease-out}
+  .cbxcc.cbxcc{animation:cbxcc-in .28s ease-out}
   @keyframes cbxcc-in{from{opacity:0}to{opacity:1}}
 }
 </style>
 
 <div class="cbxcc" id="cbxcc" role="dialog" aria-modal="false" aria-labelledby="cbxcc-t" aria-describedby="cbxcc-d" tabindex="-1" hidden>
-  <h2 id="cbxcc-t"><?php echo esc_html( $s['title'] ); ?></h2>
-  <p id="cbxcc-d"><?php echo esc_html( $s['body'] ); ?>
+  <h2 class="cbxcc-h" id="cbxcc-t"><?php echo esc_html( $s['title'] ); ?></h2>
+  <p class="cbxcc-p" id="cbxcc-d"><?php echo esc_html( $s['body'] ); ?>
     <?php if ( ! empty( $s['policy_url'] ) ) : ?>
     <a href="<?php echo esc_url( $s['policy_url'] ); ?>"><?php echo esc_html( $s['policy_label'] ); ?></a>
     <?php endif; ?></p>
