@@ -78,6 +78,7 @@ class CBXCC_Settings {
 			'button_radius'      => array( 0, 200 ),
 			'max_width'          => array( 280, 900 ),
 			'remember_days'      => array( 1, 730 ),
+			'remember_days_no'   => array( 1, 730 ),
 			'policy_version'     => array( 1, 9999 ),
 			'log_retention_days' => array( 0, 3650 ),
 		);
@@ -359,9 +360,20 @@ class CBXCC_Settings {
 				</td>
 			</tr>
 			<tr>
-				<th scope="row"><label for="cbxcc-remember_days">Remember a choice for</label></th>
+				<th scope="row"><label for="cbxcc-remember_days">Remember an <em>Accept</em> for</label></th>
 				<td><input type="number" id="cbxcc-remember_days" name="<?php echo esc_attr( $this->name( 'remember_days' ) ); ?>"
-				           value="<?php echo esc_attr( (int) $s['remember_days'] ); ?>" min="1" max="730" class="small-text"> days</td>
+				           value="<?php echo esc_attr( (int) $s['remember_days'] ); ?>" min="1" max="730" class="small-text"> days
+				    <p class="description">After this, the visitor is asked again. French and UK regulators both suggest around 180 days.</p></td>
+			</tr>
+			<tr>
+				<th scope="row"><label for="cbxcc-remember_days_no">Remember a <em>Decline</em> for</label></th>
+				<td><input type="number" id="cbxcc-remember_days_no" name="<?php echo esc_attr( $this->name( 'remember_days_no' ) ); ?>"
+				           value="<?php echo esc_attr( (int) $s['remember_days_no'] ); ?>" min="1" max="730" class="small-text"> days
+				    <p class="description" style="max-width:60em">
+						Keep this high. A "no" should stand until the visitor changes it themselves, so it is
+						also refreshed on every visit and in practice never runs out for anyone who keeps coming
+						back. 400 days is the longest any browser will store a cookie.
+					</p></td>
 			</tr>
 			<tr>
 				<th scope="row"><label for="cbxcc-policy_version">Policy version</label></th>

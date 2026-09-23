@@ -3,7 +3,7 @@ Contributors: chirobasix
 Requires at least: 5.6
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.2.0
+Stable tag: 1.3.0
 License: GPL-2.0+
 
 Cookie consent banner with Google Consent Mode v2. Design and wording are editable in WP Admin.
@@ -62,6 +62,13 @@ record that has caused trouble elsewhere).
 - JS API: `window.cbxConsent.state()`, `window.cbxConsent.open()`.
 
 == Changelog ==
+
+= 1.3.0 =
+Fixed: a visitor who declined was asked again after the same period as a visitor who accepted,
+and was tracked again in the meantime. A refusal is now stored for far longer and is refreshed on
+every visit, so it never lapses for anyone who keeps returning. Only a full acceptance expires and
+is re-asked, which is what regulators ask for: periodically re-confirm a yes, never re-ask a no.
+Accept and Decline lifetimes are now separate settings.
 
 = 1.2.0 =
 Consent log reworked to match what regulators actually ask for. Added a banner version history,

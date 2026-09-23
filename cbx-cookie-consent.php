@@ -4,7 +4,7 @@
  * Plugin URI:  https://github.com/CHIROBASIX-LLC/cbx-plugin-cookie-consent
  * GitHub Repo: CHIROBASIX-LLC/cbx-plugin-cookie-consent
  * Description: Cookie consent banner with Google Consent Mode v2. Holds Google tags until the visitor chooses, and exposes dataLayer events so Google Tag Manager can gate non-Google tags such as the Meta Pixel. Design and wording are editable under Settings, Cookie Consent. No third-party service, no subscription, no external requests.
- * Version:     1.2.0
+ * Version:     1.3.0
  * Author:      CHIROBASIX
  * Author URI:  https://chirobasix.com
  * License:     GPL-2.0+
@@ -30,7 +30,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'CBXCC_VERSION', '1.2.0' );
+define( 'CBXCC_VERSION', '1.3.0' );
 define( 'CBXCC_FILE', __FILE__ );
 define( 'CBXCC_DIR', plugin_dir_path( __FILE__ ) );
 define( 'CBXCC_OPTION', 'cbxcc_settings' );
@@ -89,6 +89,7 @@ function cbxcc_defaults() {
 		// Behaviour.
 		'default_outside_eu'  => 'granted',
 		'remember_days'       => 180,   // 6 months: what CNIL and the ICO both recommend.
+		'remember_days_no'    => 400,   // A refusal stands. 400 days is the longest any browser allows.
 		'policy_version'      => 1,
 
 		// Consent log.
@@ -143,6 +144,7 @@ function cbxcc_print_head() {
 		array(
 			'v'    => (string) $s['policy_version'],
 			'days' => (int) $s['remember_days'],
+			'ndays' => (int) $s['remember_days_no'],
 			'out'  => ( 'granted' === $s['default_outside_eu'] ) ? 1 : 0,
 			'log'  => $s['logging'] ? esc_url_raw( rest_url( 'cbx-consent/v1/log' ) ) : '',
 		)
@@ -171,10 +173,22 @@ function isEurope(){
   }catch(e){return true;}
 }
 
+function persist(o,days){
+  var exp=new Date(Date.now()+days*864e5).toUTCString();
+  d.cookie=NAME+'='+encodeURIComponent(JSON.stringify(o))+
+    ';expires='+exp+';path=/;SameSite=Lax'+(location.protocol==='https:'?';Secure':'');
+}
+
 var stored=read(),eu=isEurope(),a,m;
 if(stored){a=!!stored.a;m=!!stored.m;}
 else if(eu){a=false;m=false;}
 else{a=!!C.out;m=!!C.out;}
+
+/* A refusal stands until the visitor takes it back. Re-stamp it with a fresh expiry on every
+   visit, so someone who declined is never quietly re-prompted and re-tracked later. Only a
+   full acceptance is allowed to lapse, which is what regulators ask for: periodically
+   re-confirm a yes, never re-ask a no. */
+if(stored&&!(a&&m)){persist(stored,C.ndays);}
 
 function signal(an,mk){
   return {
@@ -198,7 +212,7 @@ w.dataLayer.push({event:'cbx_consent_ready',cbx_analytics:a?1:0,cbx_marketing:m?
 
 w.cbxConsent={version:C.v,region:eu?'eu':'row',decided:!!stored,analytics:a,marketing:m,
   state:function(){return {analytics:this.analytics,marketing:this.marketing,decided:this.decided,region:this.region};},
-  _signal:signal,_name:NAME,_days:C.days,_log:C.log,_stored:stored};
+  _signal:signal,_name:NAME,_days:C.days,_ndays:C.ndays,_log:C.log,_stored:stored};
 })(window,document);</script>
 <!-- /CHIROBASIX Cookie Consent -->
 	<?php
@@ -327,7 +341,9 @@ function uuid(){
 
 function store(a,m,id){
   var o={v:API.version,t:new Date().toISOString(),a:a?1:0,m:m?1:0,id:id},
-      exp=new Date(Date.now()+API._days*864e5).toUTCString();
+      // A full yes may lapse and be re-asked. Anything else is a refusal and is kept far longer.
+      days=(a&&m)?API._days:API._ndays,
+      exp=new Date(Date.now()+days*864e5).toUTCString();
   d.cookie=API._name+'='+encodeURIComponent(JSON.stringify(o))+
     ';expires='+exp+';path=/;SameSite=Lax'+(location.protocol==='https:'?';Secure':'');
 }
